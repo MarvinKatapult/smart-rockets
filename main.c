@@ -10,20 +10,37 @@
 
 static Vec rockets;
 static size_t frame;
-static Rectangle obstacle;
+static Texture2D rocket_texture;
+static Vec obstacles;
 
 #define ROCKET_COUNT    30
-#define FPS 240
-#define ROCKET_LIFETIME (FPS * 0.5f)
+#define FPS 60
+#define ROCKET_LIFETIME (FPS * 5.f)
 #define TARGET_POS (Vector2){GetScreenWidth() / 2.f - 10, 50 - 10}
 
 void createRockets(void) {
+    rocket_texture = LoadTexture("rocket.png");
+    if (!IsTextureReady(rocket_texture)) {
+        fprintf(stderr, "Texture rocket.png could not be loaded.\n");
+        exit(EXIT_FAILURE);
+    }
     rockets = createVecEx(ROCKET_COUNT);
     for (size_t i = 0; i < ROCKET_COUNT; i++) {
         Rocket * r = malloc(sizeof(Rocket));
-        *r = createRocket(createRandomDNA(ROCKET_LIFETIME), (Vector2){GetScreenWidth() / 2, GetScreenHeight() - 10}, Vector2Zero(), 20.f);
+        *r = createRocket(createRandomDNA(ROCKET_LIFETIME), (Vector2){(float)GetScreenWidth() / 2.f, GetScreenHeight() - 20}, Vector2Zero(), 20.f);
         appendVec(&rockets, r);
     }
+}
+
+void createObstacles(void) {
+    obstacles = createVec();
+    Rectangle * r = malloc(sizeof(Rectangle));
+    *r = (Rectangle) {20, 300, (float)GetScreenWidth() / 2 - 10, 20};
+
+    Rectangle * r2 = malloc(sizeof(Rectangle));
+    *r2 = (Rectangle) {(float)GetScreenWidth() / 2 + 10, 500, (float)GetScreenWidth() / 2 - 10, 20};
+    appendVec(&obstacles, r);
+    appendVec(&obstacles, r2);
 }
 
 void freeRockets(void) {
@@ -45,10 +62,11 @@ void drawRockets(void) {
         const double w = 50.;
         const double h = 30.;
         const double rot_angle = atan2(r->vel.y, r->vel.x);
-        DrawRectanglePro((Rectangle){r->pos.x - w / 2., r->pos.y - h / 2., w, h}, 
+        DrawRectanglePro((Rectangle){r->pos.x - w / 2., r->pos.y - h / 2., w, h},
                          (Vector2){w / 2., h / 2.},
                          rot_angle * (180. / PI),
                          BLACK);
+        // DrawLineV(r->pos, Vector2Add(r->pos, Vector2Scale(Vector2Subtract(r->pos, Vector2Add(r->pos, r->vel)), -5.f)), GREEN);
     }
 }
 
@@ -61,7 +79,15 @@ void updateRockets(void) {
         Rocket * r = rockets.entries[i].val;
         if (r->alive) {
             updateRocket(r, frame);
-            if (checkCollision(r, obstacle)) r->alive = false;
+            if ( checkCollision(r, (Rectangle){-10, 0, 10, GetScreenHeight()})
+             || checkCollision(r, (Rectangle){0, -10, GetScreenWidth(), 10})
+             || checkCollision(r, (Rectangle){0, GetScreenHeight(), GetScreenWidth(), 10})
+             || checkCollision(r, (Rectangle){GetScreenWidth(), 0, 10, GetScreenHeight()}))
+                r->alive = false;
+
+            for (size_t j = 0; j < obstacles.count; j++) {
+                if (checkCollision(r, *(Rectangle *)obstacles.entries[j].val)) r->alive = false;
+            }
         }
     }
 }
@@ -72,35 +98,31 @@ void resetRockets(void) {
     for (size_t i = 0; i < rockets.count; i++) {
         Rocket * r = rockets.entries[i].val;
         r->alive = true;
-        r->pos = (Vector2){(float)GetScreenWidth() / 2, (float)GetScreenHeight() - 10};
+        r->pos = (Vector2){(float)GetScreenWidth() / 2, (float)GetScreenHeight() - 20};
         r->vel = (Vector2){0.f, 0.f};
     }
 }
 
-void drawObstacle(void) {
-    obstacle = (Rectangle) {
-        .x = (float)GetScreenWidth() / 2.f - (float)GetScreenWidth() / 8.f,
-        .y = (float)GetScreenHeight() / 2.f - 10.f,
-        .width = (float)GetScreenWidth() / 4.f,
-        .height = 20.f,
-    };
-    DrawRectangleRec(obstacle, RED);
+void drawObstacles(void) {
+    for (size_t i = 0; i < obstacles.count; i++) {
+        DrawRectangleRec(*(Rectangle *)obstacles.entries[i].val, RED);
+    }
 }
 
 int main(void) {
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(800, 600, "Smartrockets");
+    InitWindow(600, 800, "Smartrockets");
     SetTargetFPS(FPS);
     createRockets();
+    createObstacles();
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-            ClearBackground(WHITE);
+            ClearBackground(GRAY);
             updateRockets();
             drawRockets();
             drawTarget();
-            drawObstacle();
+            drawObstacles();
             if (frame++ > ROCKET_LIFETIME) {
                 printf("Resetting Rockets...\n");
                 resetRockets();

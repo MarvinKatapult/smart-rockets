@@ -44,13 +44,10 @@ static Vector2 getRandomForce(int min, int max) {
 /** Fitness **/
 
 static void calcRocketFitness(Rocket * r, Vector2 target) {
-    if (!r->alive) r->fitness = -5.f;
-    else {
-        r->fitness = 1000 / Vector2Distance(r->pos, target);
+        r->fitness = 1000 / Vector2Distance(r->pos, target) * (r->alive ? 1.f : 0.5f);
         if (r->fitness > highest_fit) {
             highest_fit = r->fitness;
         }
-    }
     printf("Highest Fit:%f\n", highest_fit);
 }
 
@@ -103,17 +100,23 @@ void calcNewDNA(Vec rockets, Vector2 target) {
 
     for (size_t i = 0; i < rockets.count; i++) {
         Rocket * r = rockets.entries[i].val;
-        if (r == &parent1 || r == &parent2) continue;
-        for (size_t j = 0; j < r->dna.count; j++) {
-            if (j > rockets.count / 2) {
-                createCrossover(*r, parent1, j);
-            } else {
-                createCrossover(*r, parent2, j);
+        if (GetRandomValue(0, 100) < 2) {
+            for (size_t i = 0; i < r->dna.count; i++) {
+                *(Vector2 *)r->dna.entries[i].val = getRandomForce(-100, 100);
             }
-        }
+        } else {
+            if (r == &parent1 || r == &parent2) continue;
+            for (size_t j = 0; j < r->dna.count; j++) {
+                if (j > rockets.count / 2) {
+                    createCrossover(*r, parent1, j);
+                } else {
+                    createCrossover(*r, parent2, j);
+                }
+            }
 
-        for (size_t i = 0; i < r->dna.count; i++) {
-            if (GetRandomValue(0, 100) < 2) *(Vector2 *)r->dna.entries[i].val = getRandomForce(-100, 100);
+            for (size_t i = 0; i < r->dna.count; i++) {
+                if (GetRandomValue(0, 100) < 2) *(Vector2 *)r->dna.entries[i].val = getRandomForce(-100, 100);
+            }
         }
     }
     
